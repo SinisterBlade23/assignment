@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="turtlesim" exec="turtlesim_node" name="turtlesim" output="screen"/>
+
+    <node pkg="waypoint_generator" exec="waypoint_node" name="waypoint_generator" output="screen"/>
+
+    <node pkg="path_smoother" exec="smoother_node" name="path_smoother" output="screen"/>
+
+    <node pkg="trajectory_tracker" exec="tracker_node" name="trajectory_tracker" output="screen"/>
+
+    <node pkg="tracking_analyzer" exec = "analyzer_node" name = "tracking_analyzer" output = "screen"/>
+
+    <node pkg="tracking_analyzer" exec="instant_error_node" name="instant_error_analyzer" output="screen"/>
+
+    <node pkg="tracking_analyzer" exec="xy_tracking_node" name="xy_tracking_analyzer" output="screen"/>
+</launch>
