@@ -16,8 +16,14 @@ class XYTrackingAnalyzer(Node):
         self.actual_x = []
         self.actual_y = []
 
+        self.last_pose_time = None
+        self.plot_generated = False
+
         self.create_subscription(Path, '/trajectory', self.trajectory_callback, 10)
         self.create_subscription(Pose, '/turtle1/pose', self.pose_callback, 10)
+
+        # Timer to detect when turtle stops
+        self.create_timer(0.5, self.check_completion)
 
         self.get_logger().info("XY Tracking Analyzer Started")
 
@@ -27,6 +33,7 @@ class XYTrackingAnalyzer(Node):
 
         self.actual_x = []
         self.actual_y = []
+        self.plot_generated = False
 
         self.get_logger().info("Reference trajectory received")
 
@@ -34,10 +41,25 @@ class XYTrackingAnalyzer(Node):
         self.actual_x.append(msg.x)
         self.actual_y.append(msg.y)
 
-    def plot_results(self):
-        if not self.reference_x or not self.actual_x:
+        self.last_pose_time = self.get_clock().now()
+
+    def check_completion(self):
+        if self.plot_generated:
             return
 
+        if self.last_pose_time is None:
+            return
+
+        now = self.get_clock().now()
+        dt = (now - self.last_pose_time).nanoseconds / 1e9
+
+        # If no pose updates for 1 second → robot stopped
+        if dt > 1.0 and self.actual_x:
+            self.get_logger().info("Trajectory complete. Generating XY plot...")
+            self.plot_results()
+            self.plot_generated = True
+
+    def plot_results(self):
         plt.figure()
         plt.plot(self.reference_x, self.reference_y, label="Reference Path", linewidth=2)
         plt.plot(self.actual_x, self.actual_y, "--", label="Actual Path", linewidth=2)
@@ -54,12 +76,7 @@ class XYTrackingAnalyzer(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = XYTrackingAnalyzer()
-
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        node.plot_results()
-
+    rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
 

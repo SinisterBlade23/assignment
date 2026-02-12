@@ -14,10 +14,16 @@ class InstantErrorAnalyzer(Node):
         self.reference_path = []
         self.errors = []
         self.times = []
+
         self.start_time = None
+        self.last_pose_time = None
+        self.plot_generated = False
 
         self.create_subscription(Path, '/trajectory', self.trajectory_callback, 10)
         self.create_subscription(Pose, '/turtle1/pose', self.pose_callback, 10)
+
+        # Timer to detect completion
+        self.create_timer(0.5, self.check_completion)
 
         self.get_logger().info("Instantaneous Error Analyzer Started")
 
@@ -30,6 +36,7 @@ class InstantErrorAnalyzer(Node):
         self.errors = []
         self.times = []
         self.start_time = self.get_clock().now()
+        self.plot_generated = False
 
         self.get_logger().info("Reference path received.")
 
@@ -38,9 +45,10 @@ class InstantErrorAnalyzer(Node):
         if not self.reference_path or self.start_time is None:
             return
 
-        # Current robot position
         ax = msg.x
         ay = msg.y
+
+        self.last_pose_time = self.get_clock().now()
 
         # Compute cross-track error
         min_dist = float('inf')
@@ -49,17 +57,29 @@ class InstantErrorAnalyzer(Node):
             if dist < min_dist:
                 min_dist = dist
 
-        # Compute time since start (seconds)
-        current_time = self.get_clock().now()
-        dt = (current_time - self.start_time).nanoseconds / 1e9
+        # Time since start
+        dt = (self.last_pose_time - self.start_time).nanoseconds / 1e9
 
         self.times.append(dt)
         self.errors.append(min_dist)
 
-    def plot_results(self):
-        if not self.errors:
+    def check_completion(self):
+        if self.plot_generated:
             return
 
+        if self.last_pose_time is None:
+            return
+
+        now = self.get_clock().now()
+        dt = (now - self.last_pose_time).nanoseconds / 1e9
+
+        # If no pose updates for 1 second → robot stopped
+        if dt > 1.0 and self.errors:
+            self.get_logger().info("Trajectory complete. Generating Instant Error plot...")
+            self.plot_results()
+            self.plot_generated = True
+
+    def plot_results(self):
         plt.figure()
         plt.plot(self.times, self.errors)
         plt.xlabel("Time (s)")
@@ -72,12 +92,7 @@ class InstantErrorAnalyzer(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = InstantErrorAnalyzer()
-
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        node.plot_results()
-
+    rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
 

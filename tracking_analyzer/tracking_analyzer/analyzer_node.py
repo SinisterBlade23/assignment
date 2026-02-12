@@ -14,10 +14,15 @@ class TrackingAnalyzer(Node):
         self.reference_path = []
         self.errors = []
         self.rms_values = []
-        self.start_time = None
+
+        self.last_pose_time = None
+        self.plot_generated = False
 
         self.create_subscription(Path, '/trajectory', self.trajectory_callback, 10)
         self.create_subscription(Pose, '/turtle1/pose', self.pose_callback, 10)
+
+        # Timer to check when robot stops
+        self.create_timer(0.5, self.check_completion)
 
         self.get_logger().info("Tracking Analyzer Started")
 
@@ -29,7 +34,7 @@ class TrackingAnalyzer(Node):
 
         self.errors = []
         self.rms_values = []
-        self.start_time = self.get_clock().now()
+        self.plot_generated = False
 
         self.get_logger().info("Reference path received.")
 
@@ -40,6 +45,8 @@ class TrackingAnalyzer(Node):
 
         ax = msg.x
         ay = msg.y
+
+        self.last_pose_time = self.get_clock().now()
 
         # Compute cross-track error
         min_dist = float('inf')
@@ -55,10 +62,23 @@ class TrackingAnalyzer(Node):
         rms = math.sqrt(squared_sum / len(self.errors))
         self.rms_values.append(rms)
 
-    def plot_results(self):
-        if not self.rms_values:
+    def check_completion(self):
+        if self.plot_generated:
             return
 
+        if self.last_pose_time is None:
+            return
+
+        now = self.get_clock().now()
+        dt = (now - self.last_pose_time).nanoseconds / 1e9
+
+        # If no pose updates for 1 second → robot stopped
+        if dt > 1.0 and self.rms_values:
+            self.get_logger().info("Trajectory complete. Generating RMS plot...")
+            self.plot_results()
+            self.plot_generated = True
+
+    def plot_results(self):
         plt.figure()
         plt.plot(self.rms_values)
         plt.xlabel("Time Step")
@@ -71,12 +91,7 @@ class TrackingAnalyzer(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = TrackingAnalyzer()
-
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        node.plot_results()
-
+    rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
 
