@@ -1,8 +1,5 @@
 # Trajectory Tracking System - ROS2
 
-**Author:** Rushil  
-**Company:** Origin (Formerly 10xConstruction)  
-**Position:** Robotics Software Apprentice Application
 
 ---
 
