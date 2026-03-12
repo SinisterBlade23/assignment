@@ -66,7 +66,7 @@ source install/setup.bash
 source /opt/ros/jazzy/setup.bash
 cd ~/assignment_ws
 source install/setup.bash
-ros2 launch src/launch/trajectory_system.launch.py
+ros2 launch assignment_launch system_launch.xml
 ```
 
 ### Option 2: Run Nodes Individually (For Debugging)
